@@ -1,0 +1,28 @@
+### Get all parking spaces
+GET http://localhost:5000/app
+
+### Get all visitors
+GET http://localhost:5000/app/visitors
+
+### Get visitor by license plate
+GET http://localhost:5000/app/visitors/abc456
+
+### Add the number of parking spaces
+POST http://localhost:5000/app/spaces
+Content-Type: application/json
+
+{
+  "quantity": 3
+}
+
+### Add new visitor
+POST http://localhost:5000/app/visitors
+Content-Type: application/json
+
+{
+  "licensePlate": "DFG789",
+  "make": "Chevrolet",
+  "model": 2022,
+  "isNewVisitor": true
+}
+
