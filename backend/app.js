@@ -16,12 +16,8 @@ const errorHandler = (err, req, res, next) => {
 const parkingSpaces = []
 const visitors = []
 
-const config = {
-  xXssProtection: 1
-}
-
 app.use(cors())
-app.use(helmet(config))
+app.use(helmet())
 app.use(bodyParser.json())
 app.use(errorHandler)
 
@@ -52,11 +48,10 @@ app.post('/app/visitors', (req, res) => {
   const {
     licensePlate,
     make,
-    model,
-    isNewVisitor
+    model
   } = req.body
 
-  const existingVisitor = visitors.find(visitor => visitor.licensePlate === licensePlate)
+  const existingVisitor = visitors.find(visitor => visitor.newVisitor.licensePlate === licensePlate)
 
   if (existingVisitor) {
     return res.status(400).json({ error: 'Visitor already exists' })
@@ -65,13 +60,23 @@ app.post('/app/visitors', (req, res) => {
   const newVisitor = {
     licensePlate,
     make,
-    model,
-    isNewVisitor
+    model
   }
 
-  visitors.push(newVisitor)
+  const spaceIndex = parkingSpaces.findIndex(space => space.isAvailable)
 
-  res.status(201).json(newVisitor)
+  if (spaceIndex === -1) {
+    return res.status(400).json({ error: 'Not spaces available' })
+  }
+
+  parkingSpaces.splice(spaceIndex, 1, { ...parkingSpaces[spaceIndex], isAvailable: false, newVisitor })
+
+  const { isAvailable, ...space } = parkingSpaces[spaceIndex]
+  const visitorInfo = { ...space }
+
+  visitors.push(visitorInfo)
+
+  res.status(201).json(visitorInfo)
 })
 
 // Create parking spaces
@@ -84,28 +89,34 @@ app.post('/app/spaces', (req, res) => {
 
   const newSpaces = Array.from(Array(quantity), (_, index) => {
     return {
-      Id: parkingSpaces.length + index + 1,
+      Id: index + 1,
       voucherId: uuid(),
       isAvailable: true
     }
   })
 
-  parkingSpaces.push(newSpaces)
+  parkingSpaces.push(...newSpaces)
 
-  res.status(201).json(newSpaces)
+  res.status(201).json(parkingSpaces)
 })
 
 // Delete visitor by license plate
 app.delete('/app/visitors/:licensePlate', (req, res) => {
   const { licensePlate } = req.params
 
-  const deletedVisitor = visitors.filter(visitor => visitor.licensePlate !== licensePlate)
+  const visitorIndex = visitors.findIndex(visitor => visitor.newVisitor.licensePlate.toLowerCase() === licensePlate.toLowerCase()) // refactor
 
-  if (deletedVisitor === false) {
+  if (visitorIndex === -1) {
     return res.status(404).json({ error: 'Visitor not found' })
   }
 
-  res.status(204).send()
+  const spaceIndex = parkingSpaces.findIndex(space => !space.isAvailable && space.newVisitor.licensePlate.toLowerCase() === licensePlate.toLowerCase()) // refactor
+
+  const { newVisitor, ...space } = parkingSpaces[spaceIndex]
+
+  parkingSpaces.splice(spaceIndex, 1, { ...space, isAvailable: true })
+  visitors.splice(visitorIndex, 1)
+  res.status(200).send()
 })
 
 app.listen(PORT, () => {
